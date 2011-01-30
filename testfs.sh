@@ -475,14 +475,22 @@ function do_test () {
 	  24)
 	    local attr_B="---BU--" attr_b="---bu--"
 	    local attr_U="----U--" attr_u="----u--"
+	    local attr_I="---bu--" attr_i="---bu--"
 	    local lsattr_B="-+(-)-t*(-)"
 	    local lsattr_U="-+(-)-i-+(-)-t*(-)"
+	    local lsattr_I="-+(-)-i-+(-)-t*(-)"
 	    ;;
 	  *)
-	    local attr_B="-+(-)-Bui-" attr_b="-+(-)-bui-"
-	    local attr_U="-+(-)--UI-" attr_u="-+(-)--ui-"
-	    local lsattr_B="-+(-)?(A)+(-)"
-	    local lsattr_U="-+(-)-i-+(-)?([AE])+(-)"
+	    # non-barrier, immutable directory (used in testing chattr)
+	    local attr_B="-+(-)-Bui?([c-])-"
+	    local attr_b="-+(-)-bui?([c-])-"
+	    local attr_U="-+(-)--UI?([C-])-"
+	    local attr_u="-+(-)--ui?([c-])-"
+	    local attr_I="-+(-)?(b)uI?([c-])-"
+	    local attr_i="-+(-)?(b)ui?([c-])-"
+	    local lsattr_B="-+(-)?([Ae])+(-)"
+	    local lsattr_U="-+(-)-i-+(-)?([AEe])+(-)"
+	    local lsattr_I="-+(-)-i-+(-)?([AEe])+(-)"
 	    ;;
 	esac
 
@@ -491,28 +499,47 @@ function do_test () {
 
 	eexec 101  	0 "mount -t $fs -o $mopt $DEV $MNT 3>&2" || return
 	eeval		  "mkdir -p $dpath"
-	eexec 102	0 "setattr --barrier $dpath"
-	eexec 103	0 "do_xattr_verify $MNT showattr $dpath $attr_B"
-	eexec 104	0 "do_xattr_verify $MNT lsattr $dpath $lsattr_B"
-	eexec 105	0 "go_xid 2 chattr =i $dpath"
-	eexec 106	0 "do_xattr_barrier $MNT $dpath .^^"
-	eexec 108	0 "setattr --~barrier $dpath"
-	eexec 109	0 "do_xattr_verify $MNT showattr $dpath $attr_b"
+	# verify initial xattrs
+	eexec 103	0 "do_xattr_verify $MNT showattr $dpath $attr_i"
+	# verify initial mutability
+	eexec 104	0 "do_xattr_barrier $MNT $dpath ..."
+	# exercise chattr
+	eeval		  "go_xid 2 chattr +i $dpath"
+	# verify that chattr succeeded
+	eexec 106	0 "do_xattr_verify $MNT showattr $dpath $attr_I"
+	eexec 107	0 "do_xattr_verify $MNT lsattr $dpath $lsattr_I"
+	# revert chattr's actions
+	eeval		  "go_xid 2 chattr -i $dpath"
+	# verify xattrs back to initial state
+	eexec 109	0 "do_xattr_verify $MNT showattr $dpath $attr_i"
+
+	[ $terse -ne 0 ] && echo ""
+
+	eexec 112	0 "setattr --barrier $dpath"
+	eexec 113	0 "do_xattr_verify $MNT showattr $dpath $attr_B"
+	eexec 114	0 "do_xattr_verify $MNT lsattr $dpath $lsattr_B"
+	# test immutability of barrier from a non-privileged context
+	eeval		  "go_xid 2 chattr =i $dpath"
+	# verify that chattr failed
+	eexec 115	0 "do_xattr_verify $MNT showattr $dpath $attr_B"
+	eexec 116	0 "do_xattr_barrier $MNT $dpath ..^"
+	eexec 118	0 "setattr --~barrier $dpath"
+	eexec 119	0 "do_xattr_verify $MNT showattr $dpath $attr_b"
 	eeval		  "rmdir $dpath"
 
 	[ $terse -ne 0 ] && echo ""
 
 	eeval		  "echo five > $fpath"
 	eeval		  "ln $fpath $fpath.x"
-	eexec 112	0 "setattr --iunlink $fpath"
-	eexec 113	0 "do_xattr_verify $MNT showattr $fpath $attr_U"
-	eexec 114	0 "do_xattr_verify $MNT lsattr $fpath $lsattr_U"
-	eexec 115	0 "ln $fpath $fpath.y"
+	eexec 122	0 "setattr --iunlink $fpath"
+	eexec 123	0 "do_xattr_verify $MNT showattr $fpath $attr_U"
+	eexec 124	0 "do_xattr_verify $MNT lsattr $fpath $lsattr_U"
+	eexec 125	0 "ln $fpath $fpath.y"
 	[ $KCOW -lt 2 ] && \
-	eexec 116	0 "do_xattr_iunlink $MNT $fpath $ER"
-	eexec 117	0 "go_xid 2 rm -f $fpath"
-	eexec 118	0 "setattr --~iunlink $fpath.x"
-	eexec 119	0 "do_xattr_verify $MNT showattr $fpath.x $attr_u"
+	eexec 126	0 "do_xattr_iunlink $MNT $fpath $ER"
+	eexec 127	0 "go_xid 2 rm -f $fpath"
+	eexec 128	0 "setattr --~iunlink $fpath.x"
+	eexec 129	0 "do_xattr_verify $MNT showattr $fpath.x $attr_u"
 	eeval		  "rm -f $fpath.y $fpath.x"
 
 	[ $terse -ne 0 ] && echo ""
@@ -523,21 +550,21 @@ function do_test () {
 	eeval		  "setattr --iunlink $fpath"
 	eeval  		  "umount $DEV 3>&2"
 	eeval  		  "mount -t $fs -o $mopt $DEV $MNT 3>&2" || return
-	eexec 121	0 "do_xattr_verify $MNT showattr $dpath $attr_B"
-	eexec 122	0 "do_xattr_verify $MNT lsattr $dpath $lsattr_B"
-	eexec 123	0 "do_xattr_verify $MNT showattr $fpath $attr_U"
-	eexec 124	0 "do_xattr_verify $MNT lsattr $fpath $lsattr_U"
-	eexec 125	0 "do_xattr_cowbreak $MNT $fpath ..."
+	eexec 131	0 "do_xattr_verify $MNT showattr $dpath $attr_B"
+	eexec 132	0 "do_xattr_verify $MNT lsattr $dpath $lsattr_B"
+	eexec 133	0 "do_xattr_verify $MNT showattr $fpath $attr_U"
+	eexec 134	0 "do_xattr_verify $MNT lsattr $fpath $lsattr_U"
+	eexec 135	0 "do_xattr_cowbreak $MNT $fpath ..."
 
-	eexec 128  	0 "umount $DEV 3>&2"
-	eexec 129	0 "do_fsck $fs $DEV 3>&2"
+	eexec 138  	0 "umount $DEV 3>&2"
+	eexec 139	0 "do_fsck $fs $DEV 3>&2"
 
 	[ $terse -ne 0 ] && echo ""
 	if [ $KCOW -ge 2 ]; then
 	eeval	  	  "mount -t $fs -o $mopt $DEV $MNT 3>&2" || return
 
-	eexec 138  	0 "umount $DEV 3>&2"
-	eexec 139	0 "do_fsck $fs $DEV 3>&2"
+	eexec 148  	0 "umount $DEV 3>&2"
+	eexec 149	0 "do_fsck $fs $DEV 3>&2"
 	fi
 
 	[ $terse -ne 0 ] && echo ""
@@ -609,7 +636,7 @@ pause=0
 DEV=""
 MNT="/test"
 NFS="127.0.0.1:/nfs"
-FSL="ext2,ext3,xfs,reiser,jfs"
+FSL="ext2,ext3,ext4,xfs,reiser,jfs"
 
 mntopt="rw"
 nfsopt="vers=3,hard,intr,tcp,sync"
@@ -716,7 +743,7 @@ errdev="/dev/null"
 [ $verbose -gt 0 ] && errdev="/dev/stderr"
 
 
-eecho $eY "Linux-VServer FS Test [V0.20] Copyright (C) 2005-2008 H.Poetzl"
+eecho $eY "Linux-VServer FS Test [V0.23] Copyright (C) 2005-2009 H.Poetzl"
 
 KERN=`uname -srm`
 CHCV=`chcontext --version 2>&1`
@@ -765,6 +792,11 @@ for fs in $fsl; do
     ext4dev)
 	mkfsopt="-E test_fs";
 	testopt="$mntopt";
+	;;
+    btrfs)
+	mkfsopt="";
+	testopt="$mntopt";
+	fsckopt=""
 	;;
     xfs|jfs)
 	mkfsopt="-f";
