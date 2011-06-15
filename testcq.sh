@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 eR='\e[31m';eG='\e[32m';eY='\e[33m';eB='\e[34m';eN='\e[0m'
 
