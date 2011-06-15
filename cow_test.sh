@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -eux
+
 mount /dev/discs/disc1/part1 /mnt
 
 DIR=/mnt/$$
