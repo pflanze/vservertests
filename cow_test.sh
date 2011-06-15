@@ -2,9 +2,13 @@
 
 set -eux
 
-mount /dev/discs/disc1/part1 /mnt
+DEV=/dev/loop6
+MNT=/mnt/$$
 
-DIR=/mnt/$$
+mkdir -p "$MNT"
+mount "$DEV" "$MNT"
+
+DIR="$MNT"/$$
 
 mkdir -p $DIR/test/path
 
@@ -26,5 +30,5 @@ echo "- some other string" >>$DIR/test/path/five.link
 cat $DIR/five.data $DIR/five.link $DIR/test/path/five.link $DIR/test/five.sym
 ls -la $DIR/five.data $DIR/five.link $DIR/test/path/five.link $DIR/test/five.sym
 
-umount /mnt
+umount "$MNT"
 
