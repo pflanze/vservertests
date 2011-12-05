@@ -28,10 +28,11 @@ int main() {
     // Use our filehandle to get back to the root of the old jail
     X(0==, fchdir(jailrootfd));
 
+    X(0==, rmdir(breakoutsubdir));
+
     // Get to the real root
     while (1) {
 	X(0==, chdir(".."));
-
 	{
 	    struct stat s1,s2;
 	    X(0==, stat(".",&s1));
