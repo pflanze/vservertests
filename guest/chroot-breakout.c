@@ -13,7 +13,7 @@
 	goto X_out; \
     }
 
-#define breakoutsubdir "chroot-breakout"
+#define breakoutsubdir "chroot-breakout.d"
 
 int main() {
     int jailrootfd;
